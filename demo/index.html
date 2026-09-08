@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>政务区块链可信数据共享平台 - 证照链上存证Demo</title>
+<script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+<script src="blockchain.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: linear-gradient(135deg, #0a2540 0%, #134e6f 100%);
+    min-height: 100vh;
+    color: #1a2b3c;
+  }
+  .header {
+    background: linear-gradient(90deg, #0d47a1, #1565c0);
+    color: #fff;
+    padding: 18px 32px;
+    box-shadow: 0 2px 12px rgba(0,0,0,.25);
+  }
+  .header h1 { font-size: 22px; font-weight: 600; letter-spacing: 1px; }
+  .header .sub { font-size: 13px; opacity: .8; margin-top: 4px; }
+  .container { max-width: 1100px; margin: 24px auto; padding: 0 16px; }
+  .tabs {
+    display: flex;
+    gap: 4px;
+    background: rgba(255,255,255,.08);
+    border-radius: 10px 10px 0 0;
+    padding: 6px 6px 0;
+  }
+  .tab {
+    padding: 12px 24px;
+    color: #cfd8e3;
+    cursor: pointer;
+    border-radius: 8px 8px 0 0;
+    font-size: 15px;
+    font-weight: 500;
+    transition: all .2s;
+    user-select: none;
+  }
+  .tab:hover { color: #fff; background: rgba(255,255,255,.1); }
+  .tab.active { background: #fff; color: #0d47a1; }
+  .panel {
+    background: #fff;
+    border-radius: 0 10px 10px 10px;
+    padding: 28px;
+    min-height: 480px;
+    box-shadow: 0 8px 30px rgba(0,0,0,.18);
+  }
+  .page-title { font-size: 18px; font-weight: 600; color: #0d47a1; margin-bottom: 6px; }
+  .page-desc { color: #6b7c93; font-size: 13px; margin-bottom: 22px; }
+  .form-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+  .field label { display: block; font-size: 13px; color: #4a5568; margin-bottom: 6px; font-weight: 500; }
+  .field input, .field select, .field textarea {
+    width: 100%; padding: 10px 12px; border: 1px solid #d1d9e0;
+    border-radius: 6px; font-size: 14px; transition: border .2s;
+    font-family: inherit;
+  }
+  .field input:focus, .field select:focus, .field textarea:focus {
+    outline: none; border-color: #1565c0; box-shadow: 0 0 0 3px rgba(21,101,192,.12);
+  }
+  .btn {
+    background: linear-gradient(90deg, #1565c0, #1976d2);
+    color: #fff; border: none; padding: 11px 28px; border-radius: 6px;
+    font-size: 14px; cursor: pointer; font-weight: 500; transition: all .2s;
+  }
+  .btn:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(21,101,192,.35); }
+  .btn:disabled { opacity: .6; cursor: not-allowed; transform: none; box-shadow: none; }
+  .btn.secondary { background: #eceff1; color: #37474f; }
+  .btn.secondary:hover { box-shadow: 0 4px 12px rgba(0,0,0,.1); }
+  .btn.danger { background: #e53935; }
+  .actions { margin-top: 20px; display: flex; gap: 12px; align-items: center; }
+  .result {
+    margin-top: 22px; padding: 18px; border-radius: 8px;
+    background: #f1f8ff; border-left: 4px solid #1565c0;
+  }
+  .result.success { background: #e8f5e9; border-left-color: #43a047; }
+  .result.fail { background: #ffebee; border-left-color: #e53935; }
+  .result h4 { font-size: 14px; color: #0d47a1; margin-bottom: 10px; }
+  .kv { display: grid; grid-template-columns: 140px 1fr; gap: 6px 14px; font-size: 13px; }
+  .kv .k { color: #6b7c93; }
+  .kv .v { color: #1a2b3c; word-break: break-all; font-family: "Consolas", monospace; }
+  .mono { font-family: "Consolas", monospace; font-size: 12px; }
+  table { width: 100%; border-collapse: collapse; margin-top: 14px; font-size: 13px; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid #eaeef2; }
+  th { background: #f5f7fa; color: #4a5568; font-weight: 600; }
+  tr:hover td { background: #fafbfc; }
+  .tag {
+    display: inline-block; padding: 2px 10px; border-radius: 12px;
+    font-size: 12px; font-weight: 500;
+  }
+  .tag.upload { background: #e3f2fd; color: #1565c0; }
+  .tag.query { background: #fff3e0; color: #ef6c00; }
+  .tag.genesis { background: #eceff1; color: #546e7a; }
+  .status-ok { color: #2e7d32; font-weight: 600; }
+  .status-bad { color: #c62828; font-weight: 600; }
+  .chain-visual { margin-top: 20px; }
+  .chain-block {
+    display: flex; align-items: center; gap: 10px; margin-bottom: 10px;
+    padding: 12px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;
+  }
+  .chain-block .idx {
+    width: 40px; height: 40px; border-radius: 50%;
+    background: #1565c0; color: #fff; display: flex; align-items: center;
+    justify-content: center; font-weight: 700; font-size: 14px; flex-shrink: 0;
+  }
+  .chain-block .meta { font-size: 12px; color: #6b7c93; line-height: 1.6; }
+  .chain-block .meta .hash { color: #1565c0; font-family: monospace; }
+  .empty { text-align: center; padding: 40px; color: #9aa5b1; font-size: 14px; }
+  .footer { text-align: center; color: #8fa3b8; font-size: 12px; padding: 16px; }
+  .verify-card {
+    background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px;
+    padding: 16px; margin-bottom: 14px;
+  }
+  .verify-card .row { display: flex; gap: 12px; align-items: center; margin-bottom: 10px; }
+  .verify-card .row:last-child { margin-bottom: 0; }
+  .verify-card .row label { width: 90px; color: #4a5568; font-size: 13px; flex-shrink: 0; }
+  .verify-card .row input { flex: 1; padding: 8px 10px; border: 1px solid #d1d9e0; border-radius: 5px; font-size: 13px; }
+  .spinner {
+    display: inline-block; width: 16px; height: 16px;
+    border: 2px solid #cfd8e3; border-top-color: #1565c0;
+    border-radius: 50%; animation: spin .7s linear infinite; vertical-align: middle;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="header">
+    <h1>政务区块链可信数据共享平台</h1>
+    <div class="sub">证照链上存证与授权使用演示系统 ｜ 模拟区块链底层（SHA-256 哈希链）</div>
+  </div>
+
+  <div class="container">
+    <div class="tabs">
+      <div class="tab" :class="{active: page==='upload'}" @click="page='upload'">证照上链</div>
+      <div class="tab" :class="{active: page==='verify'}" @click="page='verify'">证照验证</div>
+      <div class="tab" :class="{active: page==='audit'}" @click="page='audit'; refreshAudit()">审计日志</div>
+    </div>
+
+    <div class="panel">
+      <!-- ============ 页面1：证照上链 ============ -->
+      <div v-if="page==='upload'">
+        <div class="page-title">证照上链存证</div>
+        <div class="page-desc">模拟住建部门将不动产登记证的数字指纹（哈希）记录到区块链，生成唯一交易哈希（TxID）。</div>
+
+        <div class="form-grid">
+          <div class="field">
+            <label>证照类型</label>
+            <select v-model="form.certType">
+              <option>不动产登记证明</option>
+              <option>营业执照</option>
+              <option>身份证电子证照</option>
+              <option>学历学位证</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>权证编号</label>
+            <input v-model="form.certNo" placeholder="如 BDC20260001" />
+          </div>
+          <div class="field">
+            <label>持有人</label>
+            <input v-model="form.holder" placeholder="如 张三" />
+          </div>
+          <div class="field">
+            <label>发证机关</label>
+            <input v-model="form.issuer" placeholder="如 市自然资源和规划局" />
+          </div>
+          <div class="field" style="grid-column: 1 / -1">
+            <label>证照内容 / 房产地址</label>
+            <textarea v-model="form.content" rows="2" placeholder="如 山东省济南市历下区XX路1号"></textarea>
+          </div>
+        </div>
+
+        <div class="actions">
+          <button class="btn" @click="uploadCert" :disabled="uploading">
+            <span v-if="uploading" class="spinner"></span>
+            {{ uploading ? '上链存证中...' : '上链存证' }}
+          </button>
+          <button class="btn secondary" @click="resetChain">重置区块链</button>
+          <span style="color:#6b7c93;font-size:12px">当前链高：{{ chainHeight }}</span>
+        </div>
+
+        <div v-if="uploadResult" class="result success">
+          <h4>上链成功！以下为该证照的链上存证信息</h4>
+          <div class="kv">
+            <div class="k">交易哈希 TxID</div><div class="v">{{ uploadResult.txId }}</div>
+            <div class="k">区块高度</div><div class="v">#{{ uploadResult.blockNumber + 1 }}</div>
+            <div class="k">区块哈希</div><div class="v">{{ uploadResult.blockHash }}</div>
+            <div class="k">证照数据指纹</div><div class="v">{{ uploadResult.dataHash }}</div>
+            <div class="k">上链时间</div><div class="v">{{ ChainUtil.fmtTime(uploadResult.timestamp) }}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============ 页面2：证照验证 ============ -->
+      <div v-if="page==='verify'">
+        <div class="page-title">证照查询与验证</div>
+        <div class="page-desc">模拟银行/公证处核验证照。输入权证编号从链上取出存证，比对当前数据指纹是否一致。</div>
+
+        <div class="form-grid" style="grid-template-columns: 1fr auto auto;">
+          <div class="field">
+            <label>权证编号</label>
+            <input v-model="verifyNo" placeholder="输入要验证的权证编号" @keyup.enter="queryCert" />
+          </div>
+          <div class="field" style="align-self:end">
+            <button class="btn" @click="queryCert" :disabled="querying">
+              <span v-if="querying" class="spinner"></span>
+              {{ querying ? '查询中...' : '查询并验证' }}
+            </button>
+          </div>
+        </div>
+
+        <div v-if="queryResult">
+          <div class="verify-card" :style="isModified ? 'border-color:#fb8c00;background:#fff8e1' : ''">
+            <div style="background:linear-gradient(90deg,#fb8c00,#ffa726);color:#fff;padding:8px 14px;border-radius:6px;font-size:13px;font-weight:600;margin-bottom:14px;display:flex;align-items:center;gap:8px">
+              🧪 模拟篡改测试区
+              <span style="font-weight:400;font-size:12px;opacity:.95">（此处修改仅用于验证哈希比对，不会写入区块链）</span>
+            </div>
+            <div class="row"><label>证照类型</label>
+              <select v-model="verifyForm.certType" style="flex:1;padding:8px 10px;border:1px solid #d1d9e0;border-radius:5px;font-size:13px">
+                <option>不动产登记证明</option>
+                <option>营业执照</option>
+                <option>身份证电子证照</option>
+                <option>学历学位证</option>
+              </select>
+            </div>
+            <div class="row"><label>权证编号</label><input v-model="verifyForm.certNo" /></div>
+            <div class="row"><label>持有人</label><input v-model="verifyForm.holder" /></div>
+            <div class="row"><label>发证机关</label><input v-model="verifyForm.issuer" /></div>
+            <div class="row"><label>证照内容</label><input v-model="verifyForm.content" /></div>
+            <div style="margin-top:8px;font-size:12px" :class="isModified?'status-bad':'status-ok'">
+              {{ isModified ? '⚠️ 当前数据与链上存证不一致（已被修改）' : '✅ 当前数据与链上存证一致（未修改）' }}
+            </div>
+          </div>
+
+          <div class="actions">
+            <button class="btn" @click="reVerify">重新验证（比对哈希）</button>
+            <button class="btn secondary" @click="restoreOriginal" :disabled="!isModified">恢复原始数据</button>
+          </div>
+
+          <div :class="['result', verifyPass===true?'success':verifyPass===false?'fail':'']" v-if="verifyPass!==null">
+            <h4>验证结果：<span :class="verifyPass?'status-ok':'status-bad'">{{ verifyPass?'✅ 验证通过，链上数据一致，未被篡改':'❌ 验证失败，数据指纹不匹配，证照已被篡改' }}</span></h4>
+            <div class="kv">
+              <div class="k">链上存证指纹</div><div class="v">{{ queryResult.dataHash }}</div>
+              <div class="k">当前数据指纹</div><div class="v">{{ currentHash }}</div>
+              <div class="k">存证 TxID</div><div class="v">{{ queryResult.txId }}</div>
+              <div class="k">所在区块</div><div class="v">#{{ queryResult.blockNumber + 1 }}</div>
+              <div class="k">存证时间</div><div class="v">{{ ChainUtil.fmtTime(queryResult.timestamp) }}</div>
+            </div>
+          </div>
+        </div>
+
+        <div v-if="queryResult===false && !querying" class="result fail" style="margin-top:22px">
+          <h4 class="status-bad">未找到该权证编号的链上存证记录</h4>
+          <div style="font-size:13px;color:#6b7c93">请确认编号是否正确，或先在"证照上链"页面完成存证。</div>
+        </div>
+      </div>
+
+      <!-- ============ 页面3：审计日志 ============ -->
+      <div v-if="page==='audit'">
+        <div class="page-title">授权使用记录（全程留痕）</div>
+        <div class="page-desc">每一次上链与查询操作都作为交易被打包进区块，形成不可篡改的审计链，实现"谁在何时用了谁的数据"可追溯。</div>
+
+        <div class="actions" style="margin-top:0;margin-bottom:14px">
+          <button class="btn secondary" @click="refreshAudit">刷新日志</button>
+          <span style="color:#6b7c93;font-size:12px">共 {{ auditLogs.length }} 条交易记录 ｜ 链高 {{ chainHeight }}</span>
+        </div>
+
+        <div v-if="auditLogs.length===0" class="empty">暂无审计记录</div>
+        <table v-else>
+          <thead>
+            <tr>
+              <th>时间</th><th>操作类型</th><th>操作方</th><th>对象</th><th>TxID</th><th>区块</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="(log, i) in auditLogs" :key="i">
+              <td class="mono">{{ ChainUtil.fmtTime(log.ts) }}</td>
+              <td>
+                <span class="tag" :class="log.type==='CERT_UPLOAD'?'upload':log.type==='CERT_QUERY'?'query':'genesis'">
+                  {{ log.type==='CERT_UPLOAD'?'证照上链':log.type==='CERT_QUERY'?'证照查询':'创世区块' }}
+                </span>
+              </td>
+              <td>{{ log.operator || '-' }}</td>
+              <td>{{ log.target || (log.payload?log.payload.certNo:'-') }}</td>
+              <td class="mono" style="max-width:200px;overflow:hidden;text-overflow:ellipsis">{{ log.txId || '-' }}</td>
+              <td>#{{ log.blockNumber + 1 }}</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <!-- 区块链可视化 -->
+        <div class="chain-visual">
+          <div class="page-title" style="margin-top:24px">区块链结构可视化</div>
+          <div style="color:#6b7c93;font-size:12px;margin-bottom:12px">
+            <b>交易数</b>：该区块中打包的交易笔数。本 Demo 每次操作（上链/查询）生成 1 笔交易并单独打包为 1 个区块，故每块交易数为 1；真实区块链中一个区块可包含成百上千笔交易。<br/>
+            <b>Nonce</b>（一次性随机数）：工作量证明挖矿的计数器。系统不断递增 Nonce 重新计算区块哈希，直到哈希以 <code>0000</code> 开头才被接受。Nonce 越大表示挖矿尝试次数越多；创世区块不参与挖矿故 Nonce 为 0。
+          </div>
+          <div v-for="blk in chainView" :key="blk.index" class="chain-block">
+            <div class="idx">{{ blk.index + 1 }}</div>
+            <div class="meta">
+              <div>时间：{{ ChainUtil.fmtTime(blk.timestamp) }} ｜ 交易数：{{ blk.transactions.length }} ｜ Nonce：{{ blk.nonce }}</div>
+              <div>区块哈希：<span class="hash">{{ blk.hash }}</span></div>
+              <div>前驱哈希：<span class="hash">{{ blk.previousHash }}</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      政务区块链可信数据共享平台 Demo ｜ 区块链逻辑在浏览器端模拟运行（SHA-256 哈希链）
+    </div>
+  </div>
+</div>
+
+<script>
+const { createApp, ref, reactive, computed, onMounted } = Vue;
+
+createApp({
+  setup() {
+    const { Blockchain, sha256, makeTxId, fmtTime } = window.ChainUtil;
+    const chain = new Blockchain();
+
+    const page = ref('upload');
+    const chainVersion = ref(0);
+    const chainHeight = computed(() => { chainVersion.value; return chain.chain.length; });
+    const chainView = computed(() => { chainVersion.value; return [...chain.chain].reverse().slice(0, 8); });
+
+    function bumpVersion() { chainVersion.value++; }
+
+    // ---- 上链表单 ----
+    const form = reactive({
+      certType: '不动产登记证明',
+      certNo: '',
+      holder: '',
+      issuer: '市自然资源和规划局',
+      content: '',
+    });
+    const uploading = ref(false);
+    const uploadResult = ref(null);
+
+    async function uploadCert() {
+      if (!form.certNo || !form.holder) { alert('请填写权证编号和持有人'); return; }
+      uploading.value = true;
+      uploadResult.value = null;
+
+      // 1. 计算证照数据指纹（哈希）
+      const payload = {
+        certType: form.certType,
+        certNo: form.certNo.trim(),
+        holder: form.holder.trim(),
+        issuer: form.issuer.trim(),
+        content: form.content.trim(),
+      };
+      const dataHash = await sha256(JSON.stringify(payload));
+
+      // 2. 构造上链交易
+      const tx = {
+        type: 'CERT_UPLOAD',
+        txId: makeTxId(),
+        operator: form.issuer,
+        target: payload.certNo,
+        dataHash,
+        payload,
+        ts: Date.now(),
+      };
+
+      // 3. 打包上链
+      const block = await chain.addTransactions([tx]);
+      bumpVersion();
+
+      uploadResult.value = {
+        txId: tx.txId,
+        blockNumber: block.index,
+        blockHash: block.hash,
+        dataHash,
+        timestamp: tx.ts,
+      };
+      uploading.value = false;
+    }
+
+    function resetChain() {
+      if (!confirm('确定要重置区块链吗？所有存证数据将被清空。')) return;
+      chain.reset();
+      bumpVersion();
+      uploadResult.value = null;
+      queryResult.value = null;
+      verifyPass.value = null;
+      alert('区块链已重置');
+    }
+
+    // ---- 验证 ----
+    const verifyNo = ref('');
+    const querying = ref(false);
+    const queryResult = ref(null); // null=未查, false=未找到, object=找到
+    const verifyForm = reactive({ certType: '', certNo: '', holder: '', issuer: '', content: '' });
+    const originalData = ref(null); // 链上原始数据快照，用于"恢复"和"变动检测"
+    const verifyPass = ref(null);
+    const currentHash = ref('');
+
+    // 检测表单是否被修改（与链上原始数据比对）
+    const isModified = computed(() => {
+      if (!originalData.value) return false;
+      return ['certType', 'certNo', 'holder', 'issuer', 'content'].some(
+        (k) => (verifyForm[k] || '').trim() !== (originalData.value[k] || '').trim()
+      );
+    });
+
+    // 恢复为链上原始数据
+    function restoreOriginal() {
+      if (!originalData.value) return;
+      Object.assign(verifyForm, originalData.value);
+      reVerify();
+    }
+
+    async function queryCert() {
+      if (!verifyNo.value.trim()) { alert('请输入权证编号'); return; }
+      querying.value = true;
+      queryResult.value = null;
+      verifyPass.value = null;
+
+      const found = chain.findCertificate(verifyNo.value.trim());
+      if (!found) {
+        queryResult.value = false;
+        querying.value = false;
+        return;
+      }
+
+      // 记录一次查询审计交易（全程留痕）
+      const qtx = {
+        type: 'CERT_QUERY',
+        txId: makeTxId(),
+        operator: '中国工商银行济南分行',
+        target: found.tx.payload.certNo,
+        ts: Date.now(),
+      };
+      await chain.addTransactions([qtx]);
+      bumpVersion();
+
+      const p = found.tx.payload;
+      verifyForm.certType = p.certType;
+      verifyForm.certNo = p.certNo;
+      verifyForm.holder = p.holder;
+      verifyForm.issuer = p.issuer;
+      verifyForm.content = p.content;
+      // 保存链上原始数据快照
+      originalData.value = { ...p };
+
+      queryResult.value = {
+        txId: found.tx.txId,
+        blockNumber: found.block.index,
+        dataHash: found.tx.dataHash,
+        timestamp: found.tx.ts,
+      };
+      querying.value = false;
+      // 自动验证一次
+      await reVerify();
+    }
+
+    async function reVerify() {
+      if (!queryResult.value) return;
+      const curPayload = {
+        certType: verifyForm.certType,
+        certNo: verifyForm.certNo.trim(),
+        holder: verifyForm.holder.trim(),
+        issuer: verifyForm.issuer.trim(),
+        content: verifyForm.content.trim(),
+      };
+      currentHash.value = await sha256(JSON.stringify(curPayload));
+      verifyPass.value = currentHash.value === queryResult.value.dataHash;
+    }
+
+    // ---- 审计日志 ----
+    const auditLogs = ref([]);
+    function refreshAudit() {
+      auditLogs.value = chain.getAllTransactions();
+    }
+
+    onMounted(() => {
+      refreshAudit();
+    });
+
+    return {
+      page, chainHeight, chainView,
+      form, uploading, uploadResult, uploadCert, resetChain,
+      verifyNo, querying, queryResult, verifyForm, verifyPass, currentHash,
+      isModified, restoreOriginal,
+      queryCert, reVerify,
+      auditLogs, refreshAudit,
+      ChainUtil: window.ChainUtil,
+    };
+  },
+}).mount('#app');
+</script>
+</body>
+</html>
